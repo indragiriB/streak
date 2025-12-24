@@ -1,0 +1,39 @@
+name: Streak Keeper (WIB)
+
+on:
+  schedule:
+    - cron: '30 16 * * *'   # 23:30 WIB
+  workflow_dispatch:
+
+jobs:
+  streak:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set timezone to WIB
+        run: |
+          sudo ln -sf /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
+          date
+
+      - name: Check commit today (WIB)
+        id: check
+        run: |
+          TODAY=$(date +%Y-%m-%d)
+          COUNT=$(git log --since="$TODAY 00:00" --until="$TODAY 23:59" --oneline | wc -l)
+          echo "commit_count=$COUNT" >> $GITHUB_OUTPUT
+
+      - name: Keep streak alive
+        if: steps.check.outputs.commit_count == '0'
+        run: |
+          echo "streak $(date)" >> .streak-log
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add .streak-log
+          git commit -m "chore: keep streak alive (WIB)"
+          git push
+
+      - name: Skip (already committed today)
+        if: steps.check.outputs.commit_count != '0'
+        run: echo "✅ Commit already exists today"
